@@ -1,0 +1,449 @@
+/* Acid-303 Synthesizer Styles */
+/* Inspired by Roland TB-303 silver/grey aesthetic */
+
+:root {
+    --silver: #c0c0c0;
+    --dark-silver: #a0a0a0;
+    --panel-bg: #2a2a2a;
+    --panel-border: #404040;
+    --accent-orange: #ff6600;
+    --accent-green: #00ff66;
+    --accent-red: #ff3333;
+    --text-light: #e0e0e0;
+    --text-dark: #1a1a1a;
+    --led-on: #00ff00;
+    --led-off: #003300;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+    color: var(--text-light);
+}
+
+.synth-container {
+    background: linear-gradient(180deg, var(--silver) 0%, var(--dark-silver) 100%);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow:
+        0 10px 40px rgba(0, 0, 0, 0.5),
+        inset 0 2px 0 rgba(255, 255, 255, 0.3);
+    max-width: 900px;
+    width: 100%;
+}
+
+.synth-header {
+    text-align: center;
+    padding: 15px;
+    background: var(--panel-bg);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    border: 2px solid var(--panel-border);
+}
+
+.synth-header h1 {
+    font-size: 2.5em;
+    color: var(--accent-orange);
+    text-shadow: 0 0 10px var(--accent-orange);
+    letter-spacing: 8px;
+}
+
+.synth-header .subtitle {
+    color: var(--text-light);
+    font-size: 0.9em;
+    opacity: 0.8;
+}
+
+/* Control Sections */
+.main-panel {
+    display: grid;
+    grid-template-columns: 1fr 2fr 2fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.control-section, .preset-section {
+    background: var(--panel-bg);
+    border-radius: 10px;
+    padding: 15px;
+    border: 2px solid var(--panel-border);
+}
+
+.control-section h2, .preset-section label {
+    color: var(--accent-orange);
+    font-size: 0.9em;
+    margin-bottom: 10px;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+/* Preset Select */
+.preset-section select {
+    width: 100%;
+    padding: 10px;
+    background: #1a1a1a;
+    color: var(--accent-green);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 0.9em;
+    cursor: pointer;
+}
+
+/* Waveform Toggle */
+.waveform-toggle {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.wave-btn {
+    padding: 10px 20px;
+    background: #1a1a1a;
+    color: var(--text-light);
+    border: 2px solid var(--panel-border);
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.wave-btn.active {
+    background: var(--accent-orange);
+    color: var(--text-dark);
+    border-color: var(--accent-orange);
+}
+
+.wave-btn:hover {
+    border-color: var(--accent-orange);
+}
+
+/* Knobs */
+.knob-row {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.knob-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.knob-container label {
+    color: var(--text-light);
+    font-size: 0.7em;
+    letter-spacing: 1px;
+}
+
+.knob-container .value {
+    color: var(--accent-green);
+    font-size: 0.8em;
+    font-family: 'Courier New', monospace;
+}
+
+.knob {
+    -webkit-appearance: none;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle, #3a3a3a 0%, #1a1a1a 100%);
+    border-radius: 50%;
+    border: 3px solid var(--panel-border);
+    cursor: pointer;
+    position: relative;
+}
+
+.knob::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 8px;
+    height: 25px;
+    background: var(--accent-orange);
+    border-radius: 2px;
+    cursor: pointer;
+    transform: translateY(-8px);
+}
+
+/* Sequencer */
+.sequencer-section {
+    background: var(--panel-bg);
+    border-radius: 10px;
+    padding: 20px;
+    border: 2px solid var(--panel-border);
+    margin-bottom: 20px;
+}
+
+.sequencer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.sequencer-header h2 {
+    color: var(--accent-orange);
+    letter-spacing: 2px;
+}
+
+.tempo-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tempo-control label {
+    color: var(--text-light);
+}
+
+.tempo-control input {
+    width: 70px;
+    padding: 8px;
+    background: #1a1a1a;
+    color: var(--accent-green);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    font-family: inherit;
+    text-align: center;
+}
+
+.transport {
+    display: flex;
+    gap: 10px;
+}
+
+.transport-btn {
+    padding: 10px 20px;
+    background: #1a1a1a;
+    color: var(--text-light);
+    border: 2px solid var(--panel-border);
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.transport-btn:hover {
+    border-color: var(--accent-green);
+}
+
+#play-btn.playing {
+    background: var(--accent-green);
+    color: var(--text-dark);
+    border-color: var(--accent-green);
+}
+
+/* Step Grid */
+.step-grid {
+    display: grid;
+    grid-template-columns: repeat(16, 1fr);
+    gap: 5px;
+    margin-bottom: 15px;
+}
+
+.step {
+    aspect-ratio: 1;
+    background: #1a1a1a;
+    border: 2px solid var(--panel-border);
+    border-radius: 5px;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6em;
+    transition: all 0.1s;
+    user-select: none;
+}
+
+.step.active {
+    background: var(--accent-orange);
+    border-color: var(--accent-orange);
+}
+
+.step.current {
+    box-shadow: 0 0 15px var(--accent-green);
+}
+
+.step .note-display {
+    color: var(--text-light);
+    font-size: 0.9em;
+}
+
+.step.active .note-display {
+    color: var(--text-dark);
+}
+
+.step .indicators {
+    display: flex;
+    gap: 3px;
+    margin-top: 2px;
+}
+
+.step .accent-dot,
+.step .slide-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--led-off);
+}
+
+.step.has-accent .accent-dot {
+    background: var(--accent-red);
+    box-shadow: 0 0 5px var(--accent-red);
+}
+
+.step.has-slide .slide-dot {
+    background: var(--accent-green);
+    box-shadow: 0 0 5px var(--accent-green);
+}
+
+.step-number {
+    position: absolute;
+    bottom: 2px;
+    font-size: 0.7em;
+    color: #666;
+}
+
+/* Legend */
+.sequencer-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 0.75em;
+    color: #888;
+}
+
+.legend-note,
+.legend-accent,
+.legend-slide {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 5px;
+    border-radius: 2px;
+}
+
+.legend-note { background: var(--accent-orange); }
+.legend-accent { background: var(--accent-red); }
+.legend-slide { background: var(--accent-green); }
+
+/* Keyboard */
+.keyboard-section {
+    background: var(--panel-bg);
+    border-radius: 10px;
+    padding: 20px;
+    border: 2px solid var(--panel-border);
+    text-align: center;
+}
+
+.keyboard-section h2 {
+    color: var(--accent-orange);
+    letter-spacing: 2px;
+    margin-bottom: 15px;
+}
+
+.keyboard {
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+    margin-bottom: 10px;
+}
+
+.key {
+    width: 40px;
+    height: 100px;
+    background: linear-gradient(180deg, #f0f0f0 0%, #d0d0d0 100%);
+    border: 1px solid #999;
+    border-radius: 0 0 5px 5px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 5px;
+    font-size: 0.7em;
+    color: #333;
+    transition: all 0.1s;
+}
+
+.key.black {
+    width: 28px;
+    height: 60px;
+    background: linear-gradient(180deg, #333 0%, #111 100%);
+    color: #999;
+    margin: 0 -14px;
+    z-index: 1;
+    border-radius: 0 0 3px 3px;
+}
+
+.key:active,
+.key.pressed {
+    background: var(--accent-orange);
+    color: var(--text-dark);
+}
+
+.key.black:active,
+.key.black.pressed {
+    background: linear-gradient(180deg, var(--accent-orange) 0%, #cc5500 100%);
+}
+
+.keyboard-hint {
+    color: #666;
+    font-size: 0.8em;
+}
+
+/* Footer */
+.synth-footer {
+    text-align: center;
+    padding: 15px;
+    color: var(--text-dark);
+    font-size: 0.8em;
+}
+
+.synth-footer p {
+    margin: 5px 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .main-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .step-grid {
+        grid-template-columns: repeat(8, 1fr);
+    }
+
+    .keyboard {
+        flex-wrap: wrap;
+    }
+
+    .key {
+        width: 35px;
+        height: 80px;
+    }
+
+    .key.black {
+        width: 24px;
+        height: 50px;
+        margin: 0 -12px;
+    }
+}
