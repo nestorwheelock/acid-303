@@ -1,23 +1,32 @@
-// Acid-303 Main Application
-// Handles UI and WASM synth communication
+// Acid Studio Main Application
+// Handles UI and WASM synth/drums communication
 
-import init, { Synth } from '../pkg/acid_303.js';
+import init, { Studio, Synth } from '../pkg/acid_303.js';
 
-class Acid303App {
+class AcidStudioApp {
     constructor() {
-        this.synth = null;
+        this.studio = null;
         this.audioContext = null;
         this.scriptProcessor = null;
         this.isPlaying = false;
         this.currentStep = -1;
+        this.currentDrumStep = -1;
 
-        // Step data (local copy for UI)
+        // Bass step data (local copy for UI)
         this.steps = Array(16).fill(null).map(() => ({
             note: 36, // C2
             accent: false,
             slide: false,
             active: false
         }));
+
+        // Drum step data (4 tracks x 16 steps)
+        this.drumSteps = {
+            kick: Array(16).fill(false),
+            snare: Array(16).fill(false),
+            closedHH: Array(16).fill(false),
+            openHH: Array(16).fill(false)
+        };
 
         // Keyboard mapping: A-L keys to MIDI notes
         this.keyMap = {
@@ -33,17 +42,19 @@ class Acid303App {
         try {
             // Initialize WASM
             await init();
-            this.synth = new Synth();
+            this.studio = new Studio();
 
-            console.log('Acid-303 WASM initialized');
+            console.log('Acid Studio WASM initialized');
 
             // Setup UI
             this.setupUI();
             this.setupKeyboard();
             this.loadPresets();
+            this.loadDrumPresets();
 
             // Load first preset
             this.loadPreset(0);
+            this.loadDrumPreset(0);
 
         } catch (error) {
             console.error('Failed to initialize:', error);
@@ -60,25 +71,25 @@ class Acid303App {
         });
 
         // Use ScriptProcessorNode for compatibility
-        // (AudioWorklet requires HTTPS in some browsers)
         const bufferSize = 2048;
         this.scriptProcessor = this.audioContext.createScriptProcessor(bufferSize, 0, 1);
 
         this.scriptProcessor.onaudioprocess = (event) => {
             const output = event.outputBuffer.getChannelData(0);
 
-            if (this.synth) {
-                // Process audio
-                this.synth.process(output);
+            if (this.studio) {
+                // Process audio (includes sequencer timing)
+                this.studio.process(output);
 
-                // Tick sequencer (called per sample internally, but we check for step changes)
+                // Check for step changes (for UI updates)
                 if (this.isPlaying) {
-                    for (let i = 0; i < output.length; i++) {
-                        const step = this.synth.tick();
-                        if (step >= 0 && step !== this.currentStep) {
-                            this.currentStep = step;
-                            this.updateStepDisplay();
-                        }
+                    if (this.studio.synth_step_changed()) {
+                        this.currentStep = this.studio.get_synth_step();
+                        this.updateBassStepDisplay();
+                    }
+                    if (this.studio.drum_step_changed()) {
+                        this.currentDrumStep = this.studio.get_drum_step();
+                        this.updateDrumStepDisplay();
                     }
                 }
             } else {
@@ -97,6 +108,12 @@ class Acid303App {
             this.loadPreset(parseInt(presetSelect.value));
         });
 
+        // Drum preset selector
+        const drumPresetSelect = document.getElementById('drum-preset-select');
+        drumPresetSelect.addEventListener('change', () => {
+            this.loadDrumPreset(parseInt(drumPresetSelect.value));
+        });
+
         // Waveform buttons
         document.getElementById('wave-saw').addEventListener('click', () => {
             this.setWaveform(true);
@@ -105,28 +122,38 @@ class Acid303App {
             this.setWaveform(false);
         });
 
-        // Knobs
-        this.setupKnob('cutoff', (v) => this.synth?.set_cutoff(v));
-        this.setupKnob('resonance', (v) => this.synth?.set_resonance(v / 100));
-        this.setupKnob('env-mod', (v) => this.synth?.set_env_mod(v / 100));
-        this.setupKnob('decay', (v) => this.synth?.set_decay(v));
-        this.setupKnob('accent', (v) => this.synth?.set_accent(v / 100));
-        this.setupKnob('slide-time', (v) => this.synth?.set_slide_time(v));
-        this.setupKnob('distortion', (v) => this.synth?.set_distortion(v / 100));
+        // Synth knobs
+        this.setupKnob('cutoff', (v) => this.studio?.set_synth_cutoff(v));
+        this.setupKnob('resonance', (v) => this.studio?.set_synth_resonance(v / 100));
+        this.setupKnob('env-mod', (v) => this.studio?.set_synth_env_mod(v / 100));
+        this.setupKnob('decay', (v) => this.studio?.set_synth_decay(v));
+        this.setupKnob('accent', (v) => this.studio?.set_synth_accent(v / 100));
+        this.setupKnob('slide-time', (v) => this.studio?.set_synth_slide_time(v));
+        this.setupKnob('distortion', (v) => this.studio?.set_synth_distortion(v / 100));
 
         // Tempo
         const tempoInput = document.getElementById('tempo');
         tempoInput.addEventListener('change', () => {
             const bpm = parseFloat(tempoInput.value);
-            this.synth?.set_tempo(bpm);
+            this.studio?.set_tempo(bpm);
         });
 
         // Transport
         document.getElementById('play-btn').addEventListener('click', () => this.togglePlay());
         document.getElementById('stop-btn').addEventListener('click', () => this.stop());
 
-        // Create step grid
-        this.createStepGrid();
+        // Mixer volumes
+        this.setupVolumeSlider('synth-vol', (v) => this.studio?.set_synth_volume(v / 100));
+        this.setupVolumeSlider('drum-vol', (v) => this.studio?.set_drum_volume(v / 100));
+
+        // Drum individual volumes
+        this.setupVolumeSlider('kick-vol', (v) => this.studio?.set_kick_volume(v / 100));
+        this.setupVolumeSlider('snare-vol', (v) => this.studio?.set_snare_volume(v / 100));
+        this.setupVolumeSlider('hh-vol', (v) => this.studio?.set_hihat_volume(v / 100));
+
+        // Create step grids
+        this.createBassStepGrid();
+        this.createDrumGrid();
     }
 
     setupKnob(id, callback) {
@@ -139,17 +166,25 @@ class Acid303App {
             callback(value);
         });
 
-        // Also trigger on first interaction to ensure audio context
+        input.addEventListener('mousedown', () => this.startAudio());
+    }
+
+    setupVolumeSlider(id, callback) {
+        const input = document.getElementById(id);
+        input.addEventListener('input', () => {
+            const value = parseFloat(input.value);
+            callback(value);
+        });
         input.addEventListener('mousedown', () => this.startAudio());
     }
 
     setWaveform(saw) {
-        this.synth?.set_waveform(saw);
+        this.studio?.set_synth_waveform(saw);
         document.getElementById('wave-saw').classList.toggle('active', saw);
         document.getElementById('wave-square').classList.toggle('active', !saw);
     }
 
-    createStepGrid() {
+    createBassStepGrid() {
         const grid = document.getElementById('step-grid');
         grid.innerHTML = '';
 
@@ -170,61 +205,132 @@ class Acid303App {
             // Click = toggle active
             step.addEventListener('click', (e) => {
                 if (!e.shiftKey) {
-                    this.toggleStepActive(i);
+                    this.toggleBassStepActive(i);
                 } else {
-                    this.toggleStepSlide(i);
+                    this.toggleBassStepSlide(i);
                 }
             });
 
             // Right-click = toggle accent
             step.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
-                this.toggleStepAccent(i);
+                this.toggleBassStepAccent(i);
             });
 
             // Double-click = change note
             step.addEventListener('dblclick', () => {
-                this.cycleStepNote(i);
+                this.cycleBassStepNote(i);
             });
 
             grid.appendChild(step);
         }
     }
 
-    toggleStepActive(index) {
+    createDrumGrid() {
+        const grid = document.getElementById('drum-grid');
+        grid.innerHTML = '';
+
+        const tracks = ['kick', 'snare', 'closed-hh', 'open-hh'];
+
+        for (const track of tracks) {
+            for (let i = 0; i < 16; i++) {
+                const step = document.createElement('div');
+                step.className = `drum-step ${track}`;
+                step.dataset.track = track;
+                step.dataset.step = i;
+
+                step.addEventListener('click', () => {
+                    this.toggleDrumStep(track, i);
+                });
+
+                grid.appendChild(step);
+            }
+        }
+    }
+
+    toggleDrumStep(track, index) {
+        this.startAudio();
+
+        const trackKey = track.replace('-', '');
+        const trackMap = {
+            'kick': 'kick',
+            'snare': 'snare',
+            'closedhh': 'closedHH',
+            'openhh': 'openHH'
+        };
+        const key = trackMap[trackKey];
+
+        this.drumSteps[key][index] = !this.drumSteps[key][index];
+
+        // Update WASM
+        this.studio?.set_drum_step(
+            index,
+            this.drumSteps.kick[index],
+            this.drumSteps.snare[index],
+            this.drumSteps.closedHH[index],
+            this.drumSteps.openHH[index]
+        );
+
+        // Update UI
+        this.updateDrumStepUI(track, index);
+    }
+
+    updateDrumStepUI(track, index) {
+        const stepEl = document.querySelector(`.drum-step[data-track="${track}"][data-step="${index}"]`);
+        if (!stepEl) return;
+
+        const trackKey = track.replace('-', '');
+        const trackMap = {
+            'kick': 'kick',
+            'snare': 'snare',
+            'closedhh': 'closedHH',
+            'openhh': 'openHH'
+        };
+        const key = trackMap[trackKey];
+
+        stepEl.classList.toggle('active', this.drumSteps[key][index]);
+    }
+
+    updateDrumStepDisplay() {
+        document.querySelectorAll('.drum-step').forEach((el) => {
+            const step = parseInt(el.dataset.step);
+            el.classList.toggle('current', step === this.currentDrumStep);
+        });
+    }
+
+    toggleBassStepActive(index) {
         this.startAudio();
         this.steps[index].active = !this.steps[index].active;
-        this.updateStep(index);
+        this.updateBassStep(index);
     }
 
-    toggleStepAccent(index) {
+    toggleBassStepAccent(index) {
         this.startAudio();
         this.steps[index].accent = !this.steps[index].accent;
-        this.updateStep(index);
+        this.updateBassStep(index);
     }
 
-    toggleStepSlide(index) {
+    toggleBassStepSlide(index) {
         this.startAudio();
         this.steps[index].slide = !this.steps[index].slide;
-        this.updateStep(index);
+        this.updateBassStep(index);
     }
 
-    cycleStepNote(index) {
-        // Cycle through common bass notes
-        const notes = [36, 38, 40, 41, 43, 45, 48]; // C2, D2, E2, F2, G2, A2, C3
+    cycleBassStepNote(index) {
+        const notes = [36, 38, 40, 41, 43, 45, 48];
         const currentIndex = notes.indexOf(this.steps[index].note);
         const nextIndex = (currentIndex + 1) % notes.length;
         this.steps[index].note = notes[nextIndex];
-        this.updateStep(index);
+        this.updateBassStep(index);
     }
 
-    updateStep(index) {
+    updateBassStep(index) {
         const step = this.steps[index];
-        this.synth?.set_step(index, step.note, step.accent, step.slide, step.active);
-        this.updateStepUI(index);
+        this.studio?.set_synth_step(index, step.note, step.accent, step.slide, step.active);
+        this.updateBassStepUI(index);
     }
 
-    updateStepUI(index) {
+    updateBassStepUI(index) {
         const stepEl = document.querySelector(`.step[data-index="${index}"]`);
         if (!stepEl) return;
 
@@ -238,7 +344,7 @@ class Acid303App {
         noteDisplay.textContent = this.midiToNoteName(step.note);
     }
 
-    updateStepDisplay() {
+    updateBassStepDisplay() {
         document.querySelectorAll('.step').forEach((el, i) => {
             el.classList.toggle('current', i === this.currentStep);
         });
@@ -263,30 +369,111 @@ class Acid303App {
         }
     }
 
+    loadDrumPresets() {
+        const select = document.getElementById('drum-preset-select');
+        const presets = this.getDrumPresetData();
+
+        presets.forEach((preset, i) => {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = preset.name;
+            select.appendChild(option);
+        });
+    }
+
     loadPreset(index) {
-        this.synth?.load_preset(index);
+        this.studio?.load_synth_preset(index);
+        this.syncBassStepsFromPreset(index);
 
-        // Update UI from synth state
-        // Since we can't read back from WASM easily, we'll re-sync manually
-        // For now, just update the step display based on preset patterns
-        this.syncStepsFromPreset(index);
-
-        // Update all step UIs
         for (let i = 0; i < 16; i++) {
-            this.updateStepUI(i);
+            this.updateBassStepUI(i);
         }
 
-        // Update preset selector
         document.getElementById('preset-select').value = index;
     }
 
-    syncStepsFromPreset(index) {
-        // Hardcoded preset data to match Rust presets
-        const presets = this.getPresetData();
+    loadDrumPreset(index) {
+        const presets = this.getDrumPresetData();
+        if (!presets[index]) return;
+
+        const preset = presets[index];
+
+        // Update local state
+        this.drumSteps.kick = [...preset.kick];
+        this.drumSteps.snare = [...preset.snare];
+        this.drumSteps.closedHH = [...preset.closedHH];
+        this.drumSteps.openHH = [...preset.openHH];
+
+        // Update WASM
+        for (let i = 0; i < 16; i++) {
+            this.studio?.set_drum_step(
+                i,
+                this.drumSteps.kick[i],
+                this.drumSteps.snare[i],
+                this.drumSteps.closedHH[i],
+                this.drumSteps.openHH[i]
+            );
+        }
+
+        // Update UI
+        const tracks = ['kick', 'snare', 'closed-hh', 'open-hh'];
+        for (const track of tracks) {
+            for (let i = 0; i < 16; i++) {
+                this.updateDrumStepUI(track, i);
+            }
+        }
+
+        document.getElementById('drum-preset-select').value = index;
+    }
+
+    getDrumPresetData() {
+        // Drum patterns: true = hit, false = rest
+        const k = (arr) => arr.map(v => v === 1);
+
+        return [
+            {
+                name: "Basic 4/4",
+                kick:     k([1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0]),
+                snare:    k([0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0]),
+                closedHH: k([1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0]),
+                openHH:   k([0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,1])
+            },
+            {
+                name: "Breakbeat",
+                kick:     k([1,0,0,0, 0,0,1,0, 0,0,1,0, 0,0,0,0]),
+                snare:    k([0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1]),
+                closedHH: k([1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0]),
+                openHH:   k([0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,0])
+            },
+            {
+                name: "House 909",
+                kick:     k([1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0]),
+                snare:    k([0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0]),
+                closedHH: k([1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]),
+                openHH:   k([0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0])
+            },
+            {
+                name: "Minimal Techno",
+                kick:     k([1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0]),
+                snare:    k([0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]),
+                closedHH: k([0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0]),
+                openHH:   k([0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0])
+            },
+            {
+                name: "Acid Drive",
+                kick:     k([1,0,0,1, 0,0,1,0, 1,0,0,1, 0,0,1,0]),
+                snare:    k([0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1]),
+                closedHH: k([1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]),
+                openHH:   k([0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,0])
+            }
+        ];
+    }
+
+    syncBassStepsFromPreset(index) {
+        const presets = this.getBassPresetData();
         if (presets[index]) {
             this.steps = presets[index].steps.map(s => ({ ...s }));
 
-            // Update UI controls
             const p = presets[index];
             document.getElementById('tempo').value = p.tempo;
             document.getElementById('cutoff').value = p.cutoff;
@@ -294,7 +481,6 @@ class Acid303App {
             document.getElementById('env-mod').value = p.envMod * 100;
             document.getElementById('decay').value = p.decay;
 
-            // Update value displays
             document.getElementById('cutoff-value').textContent = Math.round(p.cutoff);
             document.getElementById('resonance-value').textContent = Math.round(p.resonance * 100);
             document.getElementById('env-mod-value').textContent = Math.round(p.envMod * 100);
@@ -304,13 +490,11 @@ class Acid303App {
         }
     }
 
-    getPresetData() {
-        // Mirror of Rust preset data for UI sync
+    getBassPresetData() {
         const s = (note, accent, slide, active) => ({ note, accent, slide, active });
         const r = () => ({ note: 36, accent: false, slide: false, active: false });
 
         return [
-            // Acid Tracks
             {
                 tempo: 126, cutoff: 400, resonance: 0.75, envMod: 0.8, decay: 150, saw: true,
                 steps: [
@@ -320,7 +504,6 @@ class Acid303App {
                     s(41,true,false,true), s(36,false,false,true), r(), s(36,false,false,true)
                 ]
             },
-            // Higher State
             {
                 tempo: 132, cutoff: 300, resonance: 0.85, envMod: 0.9, decay: 120, saw: true,
                 steps: [
@@ -330,7 +513,6 @@ class Acid303App {
                     s(41,true,false,true), s(38,false,true,true), s(36,false,true,true), r()
                 ]
             },
-            // Acperience
             {
                 tempo: 138, cutoff: 350, resonance: 0.8, envMod: 0.7, decay: 100, saw: true,
                 steps: [
@@ -340,7 +522,6 @@ class Acid303App {
                     s(36,true,false,true), s(36,false,false,true), s(38,false,true,true), s(36,false,false,true)
                 ]
             },
-            // Voodoo Ray
             {
                 tempo: 118, cutoff: 500, resonance: 0.65, envMod: 0.6, decay: 200, saw: true,
                 steps: [
@@ -350,7 +531,6 @@ class Acid303App {
                     s(38,true,false,true), r(), s(41,false,true,true), r()
                 ]
             },
-            // Mentasm
             {
                 tempo: 128, cutoff: 600, resonance: 0.7, envMod: 0.75, decay: 180, saw: false,
                 steps: [
@@ -360,7 +540,6 @@ class Acid303App {
                     s(36,true,false,true), s(41,false,true,true), s(36,false,true,true), r()
                 ]
             },
-            // Energy Flash
             {
                 tempo: 130, cutoff: 450, resonance: 0.72, envMod: 0.65, decay: 140, saw: true,
                 steps: [
@@ -370,7 +549,6 @@ class Acid303App {
                     s(38,true,false,true), s(38,false,false,true), s(36,true,false,true), s(36,false,false,true)
                 ]
             },
-            // Squelch Classic
             {
                 tempo: 125, cutoff: 250, resonance: 0.9, envMod: 0.95, decay: 100, saw: true,
                 steps: [
@@ -380,7 +558,6 @@ class Acid303App {
                     s(36,true,false,true), s(43,false,true,true), s(36,false,true,true), s(38,false,true,true)
                 ]
             },
-            // Minimal Techno
             {
                 tempo: 135, cutoff: 800, resonance: 0.5, envMod: 0.4, decay: 250, saw: true,
                 steps: [
@@ -390,7 +567,6 @@ class Acid303App {
                     s(36,false,true,true), r(), r(), r()
                 ]
             },
-            // Rave Anthem
             {
                 tempo: 140, cutoff: 550, resonance: 0.68, envMod: 0.7, decay: 130, saw: true,
                 steps: [
@@ -400,7 +576,6 @@ class Acid303App {
                     s(53,true,false,true), s(48,false,true,true), s(43,false,true,true), s(36,false,true,true)
                 ]
             },
-            // Warehouse
             {
                 tempo: 122, cutoff: 380, resonance: 0.78, envMod: 0.82, decay: 170, saw: true,
                 steps: [
@@ -420,23 +595,24 @@ class Acid303App {
             this.stop();
         } else {
             this.isPlaying = true;
-            this.synth?.start();
+            this.studio?.start();
             document.getElementById('play-btn').classList.add('playing');
-            document.getElementById('play-btn').textContent = '⏸ PAUSE';
+            document.getElementById('play-btn').textContent = '|| PAUSE';
         }
     }
 
     stop() {
         this.isPlaying = false;
         this.currentStep = -1;
-        this.synth?.stop();
+        this.currentDrumStep = -1;
+        this.studio?.stop();
         document.getElementById('play-btn').classList.remove('playing');
         document.getElementById('play-btn').textContent = '▶ PLAY';
-        this.updateStepDisplay();
+        this.updateBassStepDisplay();
+        this.updateDrumStepDisplay();
     }
 
     setupKeyboard() {
-        // Create visual keyboard
         const keyboard = document.getElementById('keyboard');
         const notes = [
             { note: 'C', midi: 36, black: false, key: 'A' },
@@ -477,7 +653,6 @@ class Acid303App {
             keyboard.appendChild(key);
         });
 
-        // Computer keyboard input
         document.addEventListener('keydown', (e) => {
             if (e.repeat) return;
             const midi = this.keyMap[e.key.toLowerCase()];
@@ -485,7 +660,6 @@ class Acid303App {
                 this.pressedKeys.add(e.key);
                 this.playNote(midi);
 
-                // Highlight key
                 const keyEl = document.querySelector(`.key[data-midi="${midi}"]`);
                 keyEl?.classList.add('pressed');
             }
@@ -499,7 +673,6 @@ class Acid303App {
                     this.stopNote();
                 }
 
-                // Remove highlight
                 const keyEl = document.querySelector(`.key[data-midi="${midi}"]`);
                 keyEl?.classList.remove('pressed');
             }
@@ -508,16 +681,16 @@ class Acid303App {
 
     async playNote(midi) {
         await this.startAudio();
-        this.synth?.note_on(midi, false, false);
+        this.studio?.synth_note_on(midi, false, false);
     }
 
     stopNote() {
-        this.synth?.note_off();
+        this.studio?.synth_note_off();
     }
 }
 
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    const app = new Acid303App();
+    const app = new AcidStudioApp();
     app.init();
 });

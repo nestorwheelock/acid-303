@@ -6,6 +6,7 @@ mod envelope;
 mod sequencer;
 mod distortion;
 mod presets;
+mod drums;
 
 pub use oscillator::{Oscillator, Waveform};
 pub use filter::Filter;
@@ -13,6 +14,7 @@ pub use envelope::Envelope;
 pub use sequencer::{Sequencer, Step};
 pub use distortion::Distortion;
 pub use presets::PRESETS;
+pub use drums::{DrumMachine, DrumSequencer, DrumTrack};
 
 const SAMPLE_RATE: f32 = 44100.0;
 
@@ -264,6 +266,395 @@ fn midi_to_freq(note: f32) -> f32 {
     440.0 * 2.0_f32.powf((note - 69.0) / 12.0)
 }
 
+// ============== STUDIO (Synth + Drums Combined) ==============
+
+/// Complete studio with 303 bass synth and 808/909 drum machine
+#[wasm_bindgen]
+pub struct Studio {
+    synth: Synth,
+    drums: DrumMachine,
+
+    // Mixer levels
+    synth_vol: f32,
+    drum_vol: f32,
+    master_vol: f32,
+
+    // Sync state
+    playing: bool,
+    tempo: f32,
+
+    // Step tracking for UI
+    last_synth_step: i32,
+    last_drum_step: i32,
+    synth_step_changed: bool,
+    drum_step_changed: bool,
+}
+
+#[wasm_bindgen]
+impl Studio {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self {
+            synth: Synth::new(),
+            drums: DrumMachine::new(SAMPLE_RATE),
+            synth_vol: 0.7,
+            drum_vol: 0.8,
+            master_vol: 0.8,
+            playing: false,
+            tempo: 120.0,
+            last_synth_step: -1,
+            last_drum_step: -1,
+            synth_step_changed: false,
+            drum_step_changed: false,
+        }
+    }
+
+    /// Process audio - combines synth and drums with integrated sequencer timing
+    #[wasm_bindgen]
+    pub fn process(&mut self, output: &mut [f32]) {
+        // Reset step change flags at start of buffer
+        self.synth_step_changed = false;
+        self.drum_step_changed = false;
+
+        for sample in output.iter_mut() {
+            // Tick sequencers if playing
+            if self.playing {
+                // Synth sequencer
+                if let Some(step) = self.synth.sequencer.tick() {
+                    let new_step = self.synth.sequencer.current_step() as i32;
+                    if new_step != self.last_synth_step {
+                        self.last_synth_step = new_step;
+                        self.synth_step_changed = true;
+                    }
+                    if step.active {
+                        self.synth.note_on(step.note as f32, step.accent, step.slide);
+                    }
+                }
+
+                // Drum sequencer
+                if let Some(step) = self.drums.sequencer.tick() {
+                    let new_step = self.drums.sequencer.current_step() as i32;
+                    if new_step != self.last_drum_step {
+                        self.last_drum_step = new_step;
+                        self.drum_step_changed = true;
+                    }
+                    // Trigger drum sounds
+                    if step.kick {
+                        self.drums.kick.trigger();
+                    }
+                    if step.snare {
+                        self.drums.snare.trigger();
+                    }
+                    if step.closed_hh {
+                        self.drums.open_hh.choke();
+                        self.drums.closed_hh.trigger();
+                    }
+                    if step.open_hh {
+                        self.drums.open_hh.trigger();
+                    }
+                }
+            }
+
+            // Handle synth note sliding
+            if self.synth.is_sliding {
+                if (self.synth.current_note - self.synth.target_note).abs() > 0.01 {
+                    self.synth.current_note += (self.synth.target_note - self.synth.current_note) * self.synth.slide_rate;
+                } else {
+                    self.synth.current_note = self.synth.target_note;
+                    self.synth.is_sliding = false;
+                }
+            }
+
+            let freq = midi_to_freq(self.synth.current_note);
+            self.synth.oscillator.set_frequency(freq);
+
+            let osc_out = self.synth.oscillator.process();
+            let env = self.synth.envelope.process();
+
+            let env_scaled = env * self.synth.env_mod * 10000.0;
+            let filter_freq = (self.synth.cutoff + env_scaled).clamp(20.0, 20000.0);
+            self.synth.filter.set_cutoff(filter_freq);
+
+            let filtered = self.synth.filter.process(osc_out);
+            let vca_out = filtered * (0.3 + env * 0.7);
+            let synth_sample = self.synth.distortion.process(vca_out);
+
+            // Process drums (sound generation)
+            let drum_sample = self.drums.process();
+
+            // Mix and output
+            let mixed = (synth_sample * self.synth_vol) + (drum_sample * self.drum_vol);
+            *sample = mixed * self.master_vol;
+        }
+    }
+
+    /// Get current synth step (for UI), returns -1 if stopped
+    #[wasm_bindgen]
+    pub fn get_synth_step(&self) -> i32 {
+        if self.playing { self.last_synth_step } else { -1 }
+    }
+
+    /// Get current drum step (for UI), returns -1 if stopped
+    #[wasm_bindgen]
+    pub fn get_drum_step(&self) -> i32 {
+        if self.playing { self.last_drum_step } else { -1 }
+    }
+
+    /// Check if synth step changed during last process() call
+    #[wasm_bindgen]
+    pub fn synth_step_changed(&self) -> bool {
+        self.synth_step_changed
+    }
+
+    /// Check if drum step changed during last process() call
+    #[wasm_bindgen]
+    pub fn drum_step_changed(&self) -> bool {
+        self.drum_step_changed
+    }
+
+    // ===== Transport =====
+
+    #[wasm_bindgen]
+    pub fn start(&mut self) {
+        self.playing = true;
+        self.synth.sequencer.start();
+        self.drums.start();
+    }
+
+    #[wasm_bindgen]
+    pub fn stop(&mut self) {
+        self.playing = false;
+        self.synth.sequencer.stop();
+        self.synth.note_off();
+        self.drums.stop();
+    }
+
+    #[wasm_bindgen]
+    pub fn is_playing(&self) -> bool {
+        self.playing
+    }
+
+    #[wasm_bindgen]
+    pub fn set_tempo(&mut self, bpm: f32) {
+        self.tempo = bpm.clamp(60.0, 300.0);
+        self.synth.sequencer.set_tempo(self.tempo);
+        self.drums.set_tempo(self.tempo);
+    }
+
+    // ===== Mixer =====
+
+    #[wasm_bindgen]
+    pub fn set_synth_volume(&mut self, vol: f32) {
+        self.synth_vol = vol.clamp(0.0, 1.0);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_drum_volume(&mut self, vol: f32) {
+        self.drum_vol = vol.clamp(0.0, 1.0);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_master_volume(&mut self, vol: f32) {
+        self.master_vol = vol.clamp(0.0, 1.0);
+    }
+
+    // ===== Synth controls (delegated) =====
+
+    #[wasm_bindgen]
+    pub fn synth_note_on(&mut self, note: f32, accent: bool, slide: bool) {
+        self.synth.note_on(note, accent, slide);
+    }
+
+    #[wasm_bindgen]
+    pub fn synth_note_off(&mut self) {
+        self.synth.note_off();
+    }
+
+    #[wasm_bindgen]
+    pub fn set_synth_waveform(&mut self, saw: bool) {
+        self.synth.set_waveform(saw);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_synth_cutoff(&mut self, freq: f32) {
+        self.synth.set_cutoff(freq);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_synth_resonance(&mut self, res: f32) {
+        self.synth.set_resonance(res);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_synth_env_mod(&mut self, depth: f32) {
+        self.synth.set_env_mod(depth);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_synth_decay(&mut self, ms: f32) {
+        self.synth.set_decay(ms);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_synth_accent(&mut self, amount: f32) {
+        self.synth.set_accent(amount);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_synth_slide_time(&mut self, ms: f32) {
+        self.synth.set_slide_time(ms);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_synth_distortion(&mut self, amount: f32) {
+        self.synth.set_distortion(amount);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_synth_step(&mut self, index: usize, note: u8, accent: bool, slide: bool, active: bool) {
+        self.synth.set_step(index, note, accent, slide, active);
+    }
+
+    #[wasm_bindgen]
+    pub fn load_synth_preset(&mut self, index: usize) {
+        self.synth.load_preset(index);
+    }
+
+    // ===== Drum controls =====
+
+    /// Set a drum step with all 4 tracks at once
+    #[wasm_bindgen]
+    pub fn set_drum_step(&mut self, index: usize, kick: bool, snare: bool, closed_hh: bool, open_hh: bool) {
+        self.drums.sequencer.set_step(index, drums::DrumTrack::Kick, kick);
+        self.drums.sequencer.set_step(index, drums::DrumTrack::Snare, snare);
+        self.drums.sequencer.set_step(index, drums::DrumTrack::ClosedHH, closed_hh);
+        self.drums.sequencer.set_step(index, drums::DrumTrack::OpenHH, open_hh);
+    }
+
+    /// Set a single drum track step
+    #[wasm_bindgen]
+    pub fn set_drum_track_step(&mut self, index: usize, track: u8, active: bool) {
+        let track = match track {
+            0 => drums::DrumTrack::Kick,
+            1 => drums::DrumTrack::Snare,
+            2 => drums::DrumTrack::ClosedHH,
+            3 => drums::DrumTrack::OpenHH,
+            _ => return,
+        };
+        self.drums.sequencer.set_step(index, track, active);
+    }
+
+    #[wasm_bindgen]
+    pub fn toggle_drum_step(&mut self, index: usize, track: u8) {
+        let track = match track {
+            0 => drums::DrumTrack::Kick,
+            1 => drums::DrumTrack::Snare,
+            2 => drums::DrumTrack::ClosedHH,
+            3 => drums::DrumTrack::OpenHH,
+            _ => return,
+        };
+        self.drums.sequencer.toggle_step(index, track);
+    }
+
+    /// Get drum step data (all 4 tracks) for a specific step index
+    #[wasm_bindgen]
+    pub fn get_drum_step_data(&self, index: usize) -> Vec<u8> {
+        if let Some(step) = self.drums.sequencer.get_step(index) {
+            vec![
+                step.kick as u8,
+                step.snare as u8,
+                step.closed_hh as u8,
+                step.open_hh as u8,
+            ]
+        } else {
+            vec![0, 0, 0, 0]
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn set_kick_volume(&mut self, vol: f32) {
+        self.drums.set_kick_volume(vol);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_snare_volume(&mut self, vol: f32) {
+        self.drums.set_snare_volume(vol);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_hihat_volume(&mut self, vol: f32) {
+        self.drums.set_hihat_volume(vol);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_kick_decay(&mut self, decay: f32) {
+        self.drums.set_kick_decay(decay);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_kick_pitch(&mut self, pitch: f32) {
+        self.drums.set_kick_pitch(pitch);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_snare_tone(&mut self, tone: f32) {
+        self.drums.set_snare_tone(tone);
+    }
+
+    #[wasm_bindgen]
+    pub fn set_snare_snap(&mut self, snap: f32) {
+        self.drums.set_snare_snap(snap);
+    }
+
+    #[wasm_bindgen]
+    pub fn load_drum_pattern(&mut self, index: usize) {
+        let pattern = match index {
+            0 => &drums::BASIC_BEAT,
+            1 => &drums::BREAKBEAT,
+            2 => &drums::HOUSE_909,
+            3 => &drums::MINIMAL,
+            4 => &drums::ACID_DRIVE,
+            _ => &drums::BASIC_BEAT,
+        };
+        self.drums.sequencer.load_pattern(pattern);
+    }
+
+    #[wasm_bindgen]
+    pub fn drum_pattern_count() -> usize {
+        5
+    }
+
+    #[wasm_bindgen]
+    pub fn drum_pattern_name(index: usize) -> String {
+        match index {
+            0 => "Basic 4/4".to_string(),
+            1 => "Breakbeat".to_string(),
+            2 => "House 909".to_string(),
+            3 => "Minimal".to_string(),
+            4 => "Acid Drive".to_string(),
+            _ => "Unknown".to_string(),
+        }
+    }
+
+    // ===== Presets =====
+
+    #[wasm_bindgen]
+    pub fn synth_preset_count() -> usize {
+        Synth::preset_count()
+    }
+
+    #[wasm_bindgen]
+    pub fn synth_preset_name(index: usize) -> String {
+        Synth::preset_name(index)
+    }
+}
+
+impl Default for Studio {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -294,5 +685,26 @@ mod tests {
     fn test_presets_exist() {
         assert!(Synth::preset_count() > 0);
         assert!(!Synth::preset_name(0).is_empty());
+    }
+
+    #[test]
+    fn test_studio_creation() {
+        let studio = Studio::new();
+        assert!(!studio.is_playing());
+    }
+
+    #[test]
+    fn test_studio_process() {
+        let mut studio = Studio::new();
+        let mut buffer = [0.0f32; 128];
+        studio.synth_note_on(48.0, false, false);
+        studio.process(&mut buffer);
+        assert!(buffer.iter().any(|&s| s.abs() > 0.001));
+    }
+
+    #[test]
+    fn test_drum_patterns_exist() {
+        assert!(Studio::drum_pattern_count() > 0);
+        assert!(!Studio::drum_pattern_name(0).is_empty());
     }
 }
