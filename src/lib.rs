@@ -609,11 +609,25 @@ impl Studio {
     #[wasm_bindgen]
     pub fn load_drum_pattern(&mut self, index: usize) {
         let pattern = match index {
+            // Main patterns
             0 => &drums::BASIC_BEAT,
             1 => &drums::BREAKBEAT,
             2 => &drums::HOUSE_909,
             3 => &drums::MINIMAL,
             4 => &drums::ACID_DRIVE,
+            // Arrangement patterns
+            5 => &drums::INTRO_KICK,
+            6 => &drums::INTRO_HATS,
+            7 => &drums::BUILD_SNARE,
+            8 => &drums::BUILD_ROLL,
+            9 => &drums::BREAKDOWN,
+            10 => &drums::BREAKDOWN_KICK,
+            11 => &drums::FILL_SNARE,
+            12 => &drums::FILL_STOMP,
+            13 => &drums::FILL_OPEN_HAT,
+            14 => &drums::DROP_FULL,
+            15 => &drums::OFFBEAT_HOUSE,
+            16 => &drums::SHUFFLE,
             _ => &drums::BASIC_BEAT,
         };
         self.drums.sequencer.load_pattern(pattern);
@@ -621,17 +635,31 @@ impl Studio {
 
     #[wasm_bindgen]
     pub fn drum_pattern_count() -> usize {
-        5
+        17
     }
 
     #[wasm_bindgen]
     pub fn drum_pattern_name(index: usize) -> String {
         match index {
+            // Main patterns
             0 => "Basic 4/4".to_string(),
             1 => "Breakbeat".to_string(),
             2 => "House 909".to_string(),
-            3 => "Minimal".to_string(),
+            3 => "Minimal Techno".to_string(),
             4 => "Acid Drive".to_string(),
+            // Arrangement patterns
+            5 => "-- INTRO --".to_string(),
+            6 => "Intro + Hats".to_string(),
+            7 => "Build (Snare)".to_string(),
+            8 => "Build (Roll)".to_string(),
+            9 => "Breakdown".to_string(),
+            10 => "Breakdown + Kick".to_string(),
+            11 => "Fill: Snare".to_string(),
+            12 => "Fill: Stomp".to_string(),
+            13 => "Fill: Open Hat".to_string(),
+            14 => "DROP!".to_string(),
+            15 => "Offbeat House".to_string(),
+            16 => "Shuffle".to_string(),
             _ => "Unknown".to_string(),
         }
     }

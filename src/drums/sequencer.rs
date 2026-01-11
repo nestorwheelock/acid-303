@@ -237,6 +237,248 @@ pub static ACID_DRIVE: [DrumStep; 16] = [
     d(false, false, true,  false),
 ];
 
+// ============== ARRANGEMENT PATTERNS ==============
+
+/// Intro - kick only, building anticipation
+pub static INTRO_KICK: [DrumStep; 16] = [
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+];
+
+/// Intro with hats - adding texture
+pub static INTRO_HATS: [DrumStep; 16] = [
+    d(true,  false, true,  false),
+    d(false, false, false, false),
+    d(false, false, true,  false),
+    d(false, false, false, false),
+    d(true,  false, true,  false),
+    d(false, false, false, false),
+    d(false, false, true,  false),
+    d(false, false, false, false),
+    d(true,  false, true,  false),
+    d(false, false, false, false),
+    d(false, false, true,  false),
+    d(false, false, false, false),
+    d(true,  false, true,  false),
+    d(false, false, false, false),
+    d(false, false, true,  false),
+    d(false, false, false, false),
+];
+
+/// Build - snare roll building tension
+pub static BUILD_SNARE: [DrumStep; 16] = [
+    d(true,  false, true,  false),
+    d(false, false, true,  false),
+    d(false, false, true,  false),
+    d(false, false, true,  false),
+    d(true,  false, true,  false),
+    d(false, false, true,  false),
+    d(false, true,  true,  false),
+    d(false, false, true,  false),
+    d(true,  false, true,  false),
+    d(false, true,  true,  false),
+    d(false, true,  true,  false),
+    d(false, false, true,  false),
+    d(true,  true,  true,  false),
+    d(false, true,  true,  false),
+    d(false, true,  true,  false),
+    d(false, true,  true,  false),
+];
+
+/// Build - accelerating snare (16th note roll)
+pub static BUILD_ROLL: [DrumStep; 16] = [
+    d(true,  false, true,  false),
+    d(false, false, true,  false),
+    d(false, false, true,  false),
+    d(false, false, true,  false),
+    d(true,  true,  true,  false),
+    d(false, false, true,  false),
+    d(false, true,  true,  false),
+    d(false, false, true,  false),
+    d(true,  true,  true,  false),
+    d(false, true,  true,  false),
+    d(false, true,  true,  false),
+    d(false, true,  true,  false),
+    d(true,  true,  true,  false),
+    d(false, true,  true,  false),
+    d(false, true,  true,  false),
+    d(false, true,  true,  false),
+];
+
+/// Breakdown - stripped back, atmospheric
+pub static BREAKDOWN: [DrumStep; 16] = [
+    d(false, false, false, true ),
+    d(false, false, false, false),
+    d(false, false, true,  false),
+    d(false, false, false, false),
+    d(false, false, false, true ),
+    d(false, false, false, false),
+    d(false, false, true,  false),
+    d(false, false, false, false),
+    d(false, false, false, true ),
+    d(false, false, false, false),
+    d(false, false, true,  false),
+    d(false, false, false, false),
+    d(false, false, false, true ),
+    d(false, false, false, false),
+    d(false, false, true,  false),
+    d(false, false, false, false),
+];
+
+/// Breakdown with kick - tension builder
+pub static BREAKDOWN_KICK: [DrumStep; 16] = [
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(true,  false, false, false),
+    d(true,  false, false, false),
+    d(true,  false, false, false),
+    d(true,  false, false, false),
+];
+
+/// Fill - classic snare fill
+pub static FILL_SNARE: [DrumStep; 16] = [
+    d(true,  false, true,  false),
+    d(false, false, true,  false),
+    d(false, false, true,  false),
+    d(false, false, true,  false),
+    d(true,  true,  true,  false),
+    d(false, false, true,  false),
+    d(false, false, true,  false),
+    d(false, false, true,  false),
+    d(false, true,  false, false),
+    d(false, true,  false, false),
+    d(false, true,  false, false),
+    d(false, true,  false, false),
+    d(false, true,  false, false),
+    d(false, true,  false, false),
+    d(false, true,  false, false),
+    d(false, true,  false, false),
+];
+
+/// Fill - kick stomp (4 on the floor breakdown drop)
+pub static FILL_STOMP: [DrumStep; 16] = [
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(true,  false, false, false),
+    d(false, false, false, false),
+    d(false, false, false, false),
+    d(true,  true,  true,  true ),
+];
+
+/// Fill - open hat build
+pub static FILL_OPEN_HAT: [DrumStep; 16] = [
+    d(true,  false, true,  false),
+    d(false, false, true,  false),
+    d(false, false, false, true ),
+    d(false, false, true,  false),
+    d(true,  true,  true,  false),
+    d(false, false, false, true ),
+    d(false, false, false, true ),
+    d(false, false, false, true ),
+    d(true,  false, false, true ),
+    d(false, false, false, true ),
+    d(false, false, false, true ),
+    d(false, false, false, true ),
+    d(true,  true,  false, true ),
+    d(false, false, false, true ),
+    d(false, false, false, true ),
+    d(false, false, false, true ),
+];
+
+/// Drop - full energy return
+pub static DROP_FULL: [DrumStep; 16] = [
+    d(true,  false, true,  false),
+    d(false, false, true,  false),
+    d(true,  false, false, true ),
+    d(false, false, true,  false),
+    d(true,  true,  true,  false),
+    d(false, false, true,  false),
+    d(true,  false, false, true ),
+    d(false, false, true,  false),
+    d(true,  false, true,  false),
+    d(false, false, true,  false),
+    d(true,  false, false, true ),
+    d(false, false, true,  false),
+    d(true,  true,  true,  false),
+    d(false, false, true,  false),
+    d(true,  false, false, true ),
+    d(true,  false, true,  false),
+];
+
+/// Offbeat house - classic offbeat pattern
+pub static OFFBEAT_HOUSE: [DrumStep; 16] = [
+    d(true,  false, true,  false),
+    d(false, false, false, true ),
+    d(false, false, true,  false),
+    d(false, false, false, true ),
+    d(true,  true,  true,  false),
+    d(false, false, false, true ),
+    d(false, false, true,  false),
+    d(false, false, false, true ),
+    d(true,  false, true,  false),
+    d(false, false, false, true ),
+    d(false, false, true,  false),
+    d(false, false, false, true ),
+    d(true,  true,  true,  false),
+    d(false, false, false, true ),
+    d(false, false, true,  false),
+    d(false, false, false, true ),
+];
+
+/// Shuffled groove - swing feel
+pub static SHUFFLE: [DrumStep; 16] = [
+    d(true,  false, true,  false),
+    d(false, false, false, false),
+    d(false, false, false, true ),
+    d(false, false, true,  false),
+    d(true,  true,  true,  false),
+    d(false, false, false, false),
+    d(false, false, false, true ),
+    d(false, false, true,  false),
+    d(true,  false, true,  false),
+    d(false, false, false, false),
+    d(false, false, false, true ),
+    d(false, false, true,  false),
+    d(true,  true,  true,  false),
+    d(false, false, false, false),
+    d(false, false, false, true ),
+    d(false, false, true,  false),
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;

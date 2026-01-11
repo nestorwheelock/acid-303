@@ -8,6 +8,11 @@ pub use snare::Snare;
 pub use hihat::{ClosedHihat, OpenHihat};
 pub use sequencer::{DrumSequencer, DrumTrack};
 pub use sequencer::{BASIC_BEAT, BREAKBEAT, HOUSE_909, MINIMAL, ACID_DRIVE};
+pub use sequencer::{
+    INTRO_KICK, INTRO_HATS, BUILD_SNARE, BUILD_ROLL,
+    BREAKDOWN, BREAKDOWN_KICK, FILL_SNARE, FILL_STOMP,
+    FILL_OPEN_HAT, DROP_FULL, OFFBEAT_HOUSE, SHUFFLE
+};
 
 /// Complete drum machine with 808/909 style sounds
 pub struct DrumMachine {

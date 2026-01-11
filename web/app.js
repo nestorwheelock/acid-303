@@ -371,14 +371,14 @@ class AcidStudioApp {
 
     loadDrumPresets() {
         const select = document.getElementById('drum-preset-select');
-        const presets = this.getDrumPresetData();
+        const count = Studio.drum_pattern_count();
 
-        presets.forEach((preset, i) => {
+        for (let i = 0; i < count; i++) {
             const option = document.createElement('option');
             option.value = i;
-            option.textContent = preset.name;
+            option.textContent = Studio.drum_pattern_name(i);
             select.appendChild(option);
-        });
+        }
     }
 
     loadPreset(index) {
@@ -393,26 +393,18 @@ class AcidStudioApp {
     }
 
     loadDrumPreset(index) {
-        const presets = this.getDrumPresetData();
-        if (!presets[index]) return;
+        // Load pattern in WASM
+        this.studio?.load_drum_pattern(index);
 
-        const preset = presets[index];
-
-        // Update local state
-        this.drumSteps.kick = [...preset.kick];
-        this.drumSteps.snare = [...preset.snare];
-        this.drumSteps.closedHH = [...preset.closedHH];
-        this.drumSteps.openHH = [...preset.openHH];
-
-        // Update WASM
+        // Sync local state from WASM
         for (let i = 0; i < 16; i++) {
-            this.studio?.set_drum_step(
-                i,
-                this.drumSteps.kick[i],
-                this.drumSteps.snare[i],
-                this.drumSteps.closedHH[i],
-                this.drumSteps.openHH[i]
-            );
+            const data = this.studio?.get_drum_step_data(i);
+            if (data) {
+                this.drumSteps.kick[i] = data[0] === 1;
+                this.drumSteps.snare[i] = data[1] === 1;
+                this.drumSteps.closedHH[i] = data[2] === 1;
+                this.drumSteps.openHH[i] = data[3] === 1;
+            }
         }
 
         // Update UI
